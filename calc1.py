@@ -1,4 +1,5 @@
 INTEGER, PLUS, MINUS, EOF = 'INTEGER', 'PLUS', 'MINUS', 'EOF'
+MULTIPLY, DIVIDE = 'MULTIPLY', 'DIVIDE'
 
 class Token(object):
 	def __init__(self, type, value):
@@ -19,39 +20,56 @@ class Interpreter(object):
 		self.text = text
 		self.pos = 0
 		self.current_token = None
+		self.current_char = self.text[self.pos]
 
 	def error(self):
 		raise Exception('Error parsing input')
 
+	def advance(self):
+		self.pos += 1
+		if self.pos > len(self.text) - 1:
+			self.current_char = None
+		else:
+			self.current_char = self.text[self.pos]
+
+	def skip_whitespace(self):
+		while self.current_char is not None and self.current_char.isspace():
+			self.advance()
+
+	def integer(self):
+		result = ''
+		while self.current_char is not None and self.current_char.isdigit():
+			result += self.current_char
+			self.advance()
+		return int(result)
+
 	def get_next_token(self):
-		text = self.text
+		while self.current_char is not None:
+			if self.current_char.isspace():
+				self.skip_whitespace()
+				continue
 
-		if self.pos > len(text) - 1:
-			return Token(EOF, None)
+			if self.current_char.isdigit():
+				return Token(INTEGER, self.integer())
 
-		current_char = text[self.pos]
+			if self.current_char == '+':
+				self.advance()
+				return Token(PLUS, '+')
 
-		if current_char.isdigit():
-			token = Token(INTEGER, int(current_char))
-			self.pos += 1
-			return token
+			if self.current_char == '-':
+				self.advance()
+				return Token(MINUS, '-')
 
-		if current_char == '+':
-			token = Token(PLUS, current_char)
-			self.pos += 1
-			return token
+			if self.current_char == '*':
+				self.advance()
+				return Token(MULTIPLY, '*')
 
-		if current_char == '-':
-			token = Token(MINUS, current_char)
-			self.pos += 1
-			return token	
+			if self.current_char == '/':
+				self.advance()
+				return Token(DIVIDE, '/')
 
-		if current_char == " ":
-			self.pos += 1
-			return self.get_next_token()
-
-		self.error()
-
+			self.error()
+		
 	def eat(self, token_type):
 		if self.current_token.type == token_type:
 			self.current_token = self.get_next_token()
@@ -59,31 +77,36 @@ class Interpreter(object):
 			self.error()
 
 	def expr(self):
-		left = ""
-		right = ""
+		result = 0
 		self.current_token = self.get_next_token()
 
-		while self.current_token.type == INTEGER:
-			left = left + str(self.current_token.value)
+		left = self.current_token
+		self.eat(INTEGER)
+		result = left.value
+
+		while self.current_token is not None:
+			op = self.current_token
+			if op.type == 'PLUS':
+				self.eat(PLUS)
+			elif op.type == 'MINUS':
+				self.eat(MINUS)
+			elif op.type == 'MULTIPLY':
+				self.eat(MULTIPLY)
+			else:
+				self.eat(DIVIDE)
+
+			right = self.current_token
 			self.eat(INTEGER)
 
-		op = self.current_token
-		if op.type == 'PLUS' or op.type == 'MINUS':
-			self.eat(op.type)
-		else:
-			self.error()
-
-		while self.current_token.type == INTEGER:
-			right = right + str(self.current_token.value)
-			self.eat(INTEGER)
-		if op.type == 'PLUS':
-			result = int(left) + int(right)
-		else:
-			result = int(left) - int(right)
+			if op.type == 'PLUS':
+				result += right.value
+			elif op.type == 'MINUS':
+				result -= right.value
+			elif op.type == 'MULTIPLY':
+				result *= right.value
+			else:
+				result /= right.value
 		return result
-
-	def test(self, token):
-		return token.type == INTEGER or token.type == PLUS
 
 def main():
 	while True:
