@@ -1,5 +1,7 @@
-INTEGER, PLUS, MINUS, EOF = 'INTEGER', 'PLUS', 'MINUS', 'EOF'
-MULTIPLY, DIVIDE = 'MULTIPLY', 'DIVIDE'
+INTEGER, PLUS, MINUS, MUL, DIV, LPAREN, RPAREN, EOF = (
+	'INTEGER', 'MUL', 'DIV', 'PLUS', 'MINUS', '(', ')', 'EOF'
+)
+
 
 class Token(object):
 	def __init__(self, type, value):
@@ -15,11 +17,10 @@ class Token(object):
 	def __repr__(self):
 		return self.__str__()
 
-class Interpreter(object):
+class Lexer(object):
 	def __init__(self, text):
 		self.text = text
 		self.pos = 0
-		self.current_token = None
 		self.current_char = self.text[self.pos]
 
 	def error(self):
@@ -62,50 +63,76 @@ class Interpreter(object):
 
 			if self.current_char == '*':
 				self.advance()
-				return Token(MULTIPLY, '*')
+				return Token(MUL, '*')
 
 			if self.current_char == '/':
 				self.advance()
-				return Token(DIVIDE, '/')
+				return Token(DIV, '/')
+
+			if self.current_char == '(':
+				self.advance()
+				return Token(LPAREN, '(')
+
+			if self.current_char == ')':
+				self.advance()
+				return Token(RPAREN, ')')		
 
 			self.error()
+
+		return Token(EOF, None)
+
+class Interpreter(object):
+	def __init__(self, lexer):
+		self.lexer = lexer
+		self.current_token = self.lexer.get_next_token()
+
+	def error(self):
+		raise Exception('Invalid syntax')
 		
 	def eat(self, token_type):
 		if self.current_token.type == token_type:
-			self.current_token = self.get_next_token()
+			self.current_token = self.lexer.get_next_token()
 		else:
 			self.error()
 
-	def expr(self):
-		result = 0
-		self.current_token = self.get_next_token()
-
-		left = self.current_token
-		self.eat(INTEGER)
-		result = left.value
-
-		while self.current_token is not None:
-			op = self.current_token
-			if op.type == 'PLUS':
-				self.eat(PLUS)
-			elif op.type == 'MINUS':
-				self.eat(MINUS)
-			elif op.type == 'MULTIPLY':
-				self.eat(MULTIPLY)
-			else:
-				self.eat(DIVIDE)
-
-			right = self.current_token
+	def factor(self):
+		token = self.current_token
+		if token.type == INTEGER:
 			self.eat(INTEGER)
+			return token.value
+		elif token.type == LPAREN:
+			self.eat(LPAREN)
+			result = self.expr()
+			self.eat(RPAREN)
+			return result
 
-			if op.type == 'PLUS':
-				result += right.value
-			elif op.type == 'MINUS':
-				result -= right.value
-			elif op.type == 'MULTIPLY':
-				result *= right.value
-			else:
-				result /= right.value
+	def term(self):
+		result = self.factor()
+
+		while self.current_token.type in (MUL, DIV):
+			token = self.current_token
+			if token.type == MUL:
+				self.eat(MUL)
+				result *= self.factor()
+
+			elif token.type == DIV:
+				self.eat(DIV)
+				result /= self.factor() 
+
+		return result
+
+	def expr(self):
+		result = self.term()
+		
+		while self.current_token.type in (PLUS, MINUS):
+		    token = self.current_token
+		    if token.type == PLUS:
+		    	self.eat(PLUS)
+		    	result = result + self.term()
+		    elif token.type == MINUS:
+		    	self.eat(MINUS)
+		    	result = result - self.term()
+
 		return result
 
 def main():
@@ -116,7 +143,8 @@ def main():
 			break
 		if not text:
 			continue
-		interpreter = Interpreter(text)
+		lexer = Lexer(text)
+		interpreter = Interpreter(lexer)
 		result = interpreter.expr()
 		print(result)
 
