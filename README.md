@@ -10,6 +10,6 @@ Second phase completed:
 
 Third phase:
 - Use the interpreter based on AST to parse Pascal code
- - parserPascal.py
+  - parserPascal.py
 
 Project based on the guide made by Ruslan Spivak, available in https://ruslanspivak.com/lsbasi-part1/
